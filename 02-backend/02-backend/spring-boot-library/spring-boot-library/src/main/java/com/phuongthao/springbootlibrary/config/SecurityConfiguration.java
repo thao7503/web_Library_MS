@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -23,7 +22,7 @@ public class SecurityConfiguration {
         this.userRepository = userRepository;
     }
 
-    // Cấu hình UserDetailsService để sử dụng MySQL database
+    // Cấu hình UserDetailsService để lấy thông tin người dùng từ MySQL database
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> {
@@ -32,38 +31,45 @@ public class SecurityConfiguration {
             return org.springframework.security.core.userdetails.User.builder()
                     .username(user.getUsername())
                     .password(user.getPassword())
-                    .roles(user.getRole())
+                    .roles(user.getRole()) // Role được lưu trong database
                     .build();
         };
     }
 
-    // Cấu hình PasswordEncoder
+    // Cấu hình PasswordEncoder sử dụng BCrypt để mã hóa mật khẩu
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    // Cấu hình SecurityFilterChain
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // Disable Cross Site Request Forgery
+        // Disable CSRF (nếu không cần thiết cho REST API)
         http.csrf().disable();
 
-        // Xác thực các endpoint với yêu cầu login
+        // Cấu hình các endpoint cần xác thực và cho phép
         http.authorizeRequests(configurer ->
                         configurer
+                                .antMatchers("/auth/**").permitAll() // Các endpoint đăng ký, đăng nhập
                                 .antMatchers("/api/books/secure/**",
                                         "/api/reviews/secure/**",
                                         "/api/messages/secure/**",
                                         "/api/admin/secure/**")
-                                .authenticated()
-                                .antMatchers("/api/**").permitAll()) // Cho phép các endpoint khác không cần xác thực
-                .formLogin()  // Cấu hình form login
-                .loginPage("/login")  // Tùy chọn: Tạo trang login tùy chỉnh
+                                .authenticated() // Yêu cầu xác thực với các endpoint secure
+                                .antMatchers("/api/**").permitAll()) // Cho phép truy cập các endpoint khác
+                .formLogin() // Cấu hình form login
+                .loginPage("/login") // Tùy chọn: Tạo trang login tùy chỉnh nếu cần
                 .permitAll()
                 .and()
-                .httpBasic();  // Cho phép xác thực cơ bản
+                .logout() // Cấu hình logout
+                .logoutUrl("/logout")
+                .logoutSuccessUrl("/")
+                .permitAll()
+                .and()
+                .httpBasic(); // Xác thực cơ bản (Basic Auth)
 
-        // Thêm CORS filters (nếu cần thiết)
+        // Thêm cấu hình CORS nếu cần
         http.cors();
 
         return http.build();

@@ -32,4 +32,18 @@ public class AuthController {
 
         return "Registration successful!";
     }
+
+    // Phương thức đăng nhập người dùng
+    @PostMapping("/login")
+    public String login(@RequestBody RegisterRequest loginRequest) {
+        User user = userRepository.findByUsername(loginRequest.getUsername())
+                .orElseThrow(() -> new RuntimeException("Invalid username or password"));
+
+        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+            return "Invalid username or password";
+        }
+
+        return "Login successful! Welcome, " + user.getUsername();
+    }
+
 }
